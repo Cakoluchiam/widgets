@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a5c2e">
+  <title>Freebie Cell</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Card and slot elements are created and positioned by render.js -->
+  </div>
+
+  <div id="hud">
+    <!-- Populated by render.renderHud() -->
+  </div>
+
+  <div id="banner" class="hidden"></div>
+
+  <!-- Google Sign-In button container (rendered into by auth.js) -->
+  <div id="gsi-btn" style="display:none"></div>
+
+  <!-- ── External dependencies (CDN) ── -->
+  <!--
+    Firebase: replace with your project's CDN snippet.
+    Google GSI: loaded async; auth.js handles the case where it's not yet available.
+    Interact.js: pinned version for SW cache consistency.
+  -->
+  <!-- <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script> -->
+  <!-- <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script> -->
+  <!-- <script src="https://accounts.google.com/gsi/client" async defer></script> -->
+  <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+
+  <!-- ── App configuration (fill in before deployment) ── -->
+  <script>
+    window.FC = window.FC || {};
+    // FC.firebaseConfig = { apiKey: "…", authDomain: "…", projectId: "…", … };
+    // FC.googleClientId = "….apps.googleusercontent.com";
+  </script>
+
+  <!-- ── App modules (dependency order) ── -->
+  <script src="js/constants.js"></script>
+  <script src="js/deal.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/solver.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/drag.js"></script>
+  <script src="js/dialogs.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
