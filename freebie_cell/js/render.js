@@ -54,10 +54,13 @@ FC.render = {
     const availColH = h - hudH - gap * 2;
     const colX = Array.from({ length: 8 }, (_, i) => sidebarW + gap + i * (cardW + gap));
 
-    // Sidebar: foundations occupy top, freecells occupy bottom half
+    // Sidebar: 8 cards (4 foundations + 4 free cells) + 9 gaps must fit in available height.
     const sideCardW = sidebarW - gap * 2;
-    const sideCardH = Math.floor(sideCardW * 7 / 5);
-    const sideGap = Math.max(2, Math.floor((h - hudH - sideCardH * 8) / 9));
+    const availSideH = h - hudH;
+    const minGap = 3;
+    const maxSideCardH = Math.floor((availSideH - minGap * 9) / 8);
+    const sideCardH = Math.min(Math.floor(sideCardW * 7 / 5), maxSideCardH);
+    const sideGap = Math.max(minGap, Math.floor((availSideH - sideCardH * 8) / 9));
     const foundationY = Array.from({ length: 4 }, (_, i) => sideGap + i * (sideCardH + sideGap));
     const freecellY = Array.from({ length: 4 }, (_, i) => {
       const midY = sideGap + 4 * (sideCardH + sideGap) + sideGap;
@@ -318,12 +321,19 @@ FC.render = {
   // ── Slot rects (for drag hit-testing) ────────────────────────────────────
 
   getSlotRects() {
+    const L = this._layout;
     return this._slotEls.map(el => {
       const r = el.getBoundingClientRect();
+      let bottom = r.bottom;
+      // Extend tableau slots to cover the full column height so drops anywhere
+      // on a column (including its stacked cards below the slot) are detected.
+      if (L && el.dataset.zone === 'tableau') {
+        bottom = r.top + L.availColH;
+      }
       return {
         zone: el.dataset.zone,
         idx: parseInt(el.dataset.idx, 10),
-        left: r.left, top: r.top, right: r.right, bottom: r.bottom,
+        left: r.left, top: r.top, right: r.right, bottom,
       };
     });
   },

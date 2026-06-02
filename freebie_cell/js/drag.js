@@ -1,9 +1,10 @@
 window.FC = window.FC || {};
 
 FC.drag = {
-  _dragSrc: null,       // { zone, idx, card, count, origX, origY }
+  _dragSrc: null,       // { zone, idx, card, count }
   _dragEl: null,
   _ghostEl: null,
+  _hiddenDuringDrag: [], // card elements hidden for sequence drag, restored on cleanup
   _pendingTap: null,    // cardIdx awaiting disambiguation
   _highlightedSlots: [],
 
@@ -117,6 +118,11 @@ FC.drag = {
       this._ghostEl.remove();
       this._ghostEl = null;
     }
+    // Restore any card elements hidden for a sequence drag (renderAll will reposition them)
+    for (const el of this._hiddenDuringDrag) {
+      el.style.visibility = '';
+    }
+    this._hiddenDuringDrag = [];
     this._dragSrc = null;
     this._dragEl = null;
   },
@@ -136,8 +142,15 @@ FC.drag = {
     ghost.style.left = rect.left + 'px';
     ghost.style.top = rect.top + window.scrollY + 'px';
 
-    // Clone cards below the dragged card in the sequence
+    // Clone cards below the dragged card in the sequence and hide the originals
+    // so they don't appear duplicated while the ghost moves.
     for (let r = fromRowIdx + 1; r < col.length; r++) {
+      const orig = FC.render._cardEls.get(col[r]);
+      if (orig) {
+        orig.style.visibility = 'hidden';
+        this._hiddenDuringDrag.push(orig);
+      }
+
       const clone = document.createElement('div');
       clone.className = 'card card-ghost-clone';
       clone.style.position = 'absolute';
