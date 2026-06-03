@@ -59,6 +59,8 @@ FC.rules = {
       }
     }
 
+    const maxSeq = FC.rules.maxMovableSequence(freecells, columns);
+
     for (const src of sources) {
       const card = src.card;
 
@@ -80,24 +82,26 @@ FC.rules = {
       for (let c = 0; c < 8; c++) {
         if (src.zone === 'tableau' && src.idx === c) continue;
         const targetCard = columns[c].length > 0 ? columns[c][columns[c].length - 1] : undefined;
-        if (FC.rules.canPlaceOnTableau(card, targetCard)) {
-          // Check sequence moves from tableau (count > 1)
-          if (src.zone === 'tableau') {
-            const maxSeq = FC.rules.maxMovableSequence(freecells, columns);
-            for (let count = 1; count <= Math.min(maxSeq, columns[src.idx].length); count++) {
-              if (!FC.rules.isValidSequence(columns[src.idx], count)) break;
-              const seqTop = columns[src.idx][columns[src.idx].length - count];
-              if (count === 1 || FC.rules.canPlaceOnTableau(seqTop, targetCard)) {
-                moves.push({
-                  fromZone: 'tableau', fromIdx: src.idx, toZone: 'tableau', toIdx: c,
-                  card: seqTop, count,
-                });
-                if (count > 1) break; // already added the largest valid sequence
-              }
-            }
-          } else {
-            // Freecell → tableau (always single card)
+
+        if (src.zone === 'freecell') {
+          // Free cell → tableau: single card only
+          if (FC.rules.canPlaceOnTableau(card, targetCard)) {
             moves.push({ fromZone: 'freecell', fromIdx: src.idx, toZone: 'tableau', toIdx: c, card, count: 1 });
+          }
+        } else {
+          // Tableau → tableau: check each sequence length independently.
+          // The outer gate (canPlaceOnTableau on col[-1]) is intentionally gone:
+          // a 3-card sequence may fit a target even when the single accessible card does not.
+          for (let count = 1; count <= Math.min(maxSeq, columns[src.idx].length); count++) {
+            if (!FC.rules.isValidSequence(columns[src.idx], count)) break;
+            const seqTop = columns[src.idx][columns[src.idx].length - count];
+            if (FC.rules.canPlaceOnTableau(seqTop, targetCard)) {
+              moves.push({ fromZone: 'tableau', fromIdx: src.idx, toZone: 'tableau', toIdx: c, card: seqTop, count });
+              // Non-empty target: rank matching is mutually exclusive across counts, so only
+              // one count can be valid per source+target pair — stop checking.
+              // Empty target: every count is valid, keep iterating.
+              if (targetCard !== undefined) break;
+            }
           }
         }
       }

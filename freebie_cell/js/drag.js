@@ -90,6 +90,7 @@ FC.drag = {
     }
 
     const target = this._hitTestSlot(e.clientX, e.clientY);
+    let accepted = false;
     if (target) {
       const move = {
         fromZone: this._dragSrc.zone,
@@ -99,18 +100,13 @@ FC.drag = {
         card: this._dragSrc.card,
         count: this._dragSrc.count || 1,
       };
-      const accepted = FC.app.tryMove(move);
-      if (!accepted) this._snapBack(el);
-    } else {
-      this._snapBack(el);
+      accepted = FC.app.tryMove(move); // calls renderAll on success
     }
 
-    this._cleanup();
-  },
-
-  _snapBack(el) {
-    el.style.transform = '';
-    if (this._ghostEl) this._ghostEl.style.transform = '';
+    this._cleanup(); // restore visibility on hidden sequence cards
+    if (!accepted) {
+      FC.render.renderAll(FC.state.board); // restore positions and z-indices on failed drop
+    }
   },
 
   _cleanup() {

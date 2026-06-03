@@ -113,6 +113,7 @@ FC.render = {
     el.style.height = h + 'px';
     el.style.zIndex = z;
     el.style.transform = '';
+    el.style.visibility = '';
   },
 
   // ── Slot elements ─────────────────────────────────────────────────────────
