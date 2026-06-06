@@ -288,6 +288,7 @@ FC.render = {
       ${autoHtml}
       <span class="hud-right">
         <button class="hud-btn" id="btn-undo" title="Undo">↩</button>
+        <button class="hud-btn" id="btn-restart" title="Restart this game">↺</button>
         <button class="hud-btn" id="btn-new" title="New game">🃏</button>
         <button class="hud-btn" id="btn-settings" title="Settings">⚙️</button>
         <span class="hud-user">${username || 'Guest'}</span>

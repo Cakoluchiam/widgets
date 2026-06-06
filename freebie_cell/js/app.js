@@ -91,6 +91,15 @@ FC.app = {
     this._renderHud();
   },
 
+  _restartGame() {
+    const num = FC.state.board.gameNumber;
+    FC.state.newGame(num);
+    this._isAutoSolvable = false;
+    this._isStuck = false;
+    FC.render.renderAll(FC.state.board);
+    this._renderHud();
+  },
+
   // ── Auto-solve ────────────────────────────────────────────────────────────
 
   autoSolve() {
@@ -220,8 +229,9 @@ FC.app = {
 
     const id = target.id;
 
-    if (id === 'btn-undo') { this.undo(); return; }
-    if (id === 'btn-new')  { this._promptNewGame(); return; }
+    if (id === 'btn-undo')    { this.undo(); return; }
+    if (id === 'btn-restart') { this._restartGame(); return; }
+    if (id === 'btn-new')     { this._promptNewGame(); return; }
     if (id === 'btn-settings') { this._promptUsername(); return; }
     if (id === 'auto-btn') { this.autoSolve(); return; }
     if (id === 'hud-game') { this._promptNewGame(); return; }
