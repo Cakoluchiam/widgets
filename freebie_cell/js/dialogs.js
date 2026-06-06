@@ -134,8 +134,8 @@ FC.dialogs = {
       ).join('');
 
       const hudOptions = [
-        { val: 'compact',  label: '🔼 Compact',  exp: false },
-        { val: 'expanded', label: '🔽 Expanded',  exp: true  },
+        { val: 'compact',  label: '🔽 Compact',  exp: false },
+        { val: 'expanded', label: '🔼 Expanded',  exp: true  },
       ];
       const hudBtns = hudOptions.map(o =>
         `<button class="dialog-btn dialog-option-btn${hudExpanded === o.exp ? ' selected' : ''}"

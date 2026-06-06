@@ -92,15 +92,34 @@ FC.drag = {
     const target = this._hitTestSlot(e.clientX, e.clientY);
     let accepted = false;
     if (target) {
+      let toIdx = target.idx;
+
+      // Route freecell drops to the first empty slot regardless of which slot was hit.
+      if (target.zone === 'freecell') {
+        const emptyIdx = FC.state.board.freecells.indexOf(-1);
+        if (emptyIdx !== -1) toIdx = emptyIdx;
+      }
+
+      // Route foundation drops to the correct suit regardless of which slot was hit.
+      if (target.zone === 'foundation') {
+        const board = FC.state.board;
+        for (let i = 0; i < 4; i++) {
+          if (FC.rules.canPlaceOnFoundation(this._dragSrc.card, FC.SUITS[i], board.foundations[FC.SUITS[i]])) {
+            toIdx = i;
+            break;
+          }
+        }
+      }
+
       const move = {
         fromZone: this._dragSrc.zone,
-        fromIdx: this._dragSrc.idx,
-        toZone: target.zone,
-        toIdx: target.idx,
-        card: this._dragSrc.card,
+        fromIdx:  this._dragSrc.idx,
+        toZone:   target.zone,
+        toIdx,
+        card:  this._dragSrc.card,
         count: this._dragSrc.count || 1,
       };
-      accepted = FC.app.tryMove(move); // calls renderAll on success
+      accepted = FC.app.tryMove(move);
     }
 
     this._cleanup(); // restore visibility on hidden sequence cards

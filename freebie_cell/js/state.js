@@ -90,8 +90,6 @@ FC.state = {
     if (this.history.length === 0) return false;
     const prev = this.history.pop();
     this._restore(prev);
-    // Per spec: undo also increments move count
-    this.board.moveCount++;
     this.board.won = false;
     this._scheduleSave();
     return true;
