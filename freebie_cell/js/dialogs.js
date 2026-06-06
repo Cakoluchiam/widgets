@@ -10,7 +10,6 @@ FC.dialogs = {
     overlay.innerHTML = `<div class="dialog-box">${html}</div>`;
     document.body.appendChild(overlay);
     this._el = overlay;
-    // Tap outside to cancel
     overlay.addEventListener('pointerdown', (e) => {
       if (e.target === overlay) this._dismiss();
     });
@@ -24,7 +23,7 @@ FC.dialogs = {
     }
   },
 
-  // Generic confirm — returns a Promise that resolves with the chosen value.
+  // Generic confirm — resolves with the chosen value.
   confirm({ title, message, choices }) {
     return new Promise((resolve) => {
       const btns = choices.map(c =>
@@ -45,7 +44,7 @@ FC.dialogs = {
     });
   },
 
-  // New-game dialog with random/entry options and % solved.
+  // New-game dialog.
   newGame({ gamesPlayed, gamesSolved, hasAuth }) {
     const pct = this._formatPct(gamesSolved, gamesPlayed);
     const progressLine = gamesPlayed > 0
@@ -76,7 +75,7 @@ FC.dialogs = {
     });
   },
 
-  // Text input dialog — returns the entered value or null on cancel.
+  // Text input dialog — resolves with the value or null on cancel.
   textInput({ title, placeholder, initial }) {
     return new Promise((resolve) => {
       const overlay = this._show(`
@@ -101,7 +100,7 @@ FC.dialogs = {
         resolve(null);
       });
       input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') overlay.querySelector('[data-val="ok"]').click();
+        if (e.key === 'Enter')  overlay.querySelector('[data-val="ok"]').click();
         if (e.key === 'Escape') overlay.querySelector('[data-val="cancel"]').click();
       });
     });
@@ -110,28 +109,86 @@ FC.dialogs = {
   // Win dialog.
   gameWon({ moveCount }) {
     return this.confirm({
-      title: '🎉 You won!',
+      title:   '🎉 You won!',
       message: `Completed in ${moveCount} moves.`,
       choices: [
         { value: 'save', label: '💾 Save score' },
-        { value: 'new', label: '🃏 New game' },
+        { value: 'new',  label: '🃏 New game' },
       ],
     });
   },
 
-  // Username override dialog.
-  usernameOverride(current) {
-    return this.textInput({
-      title: 'Change display name',
-      placeholder: 'Your name',
-      initial: current,
+  // Settings dialog — resolves with { username, orientation, hudExpanded } or null on cancel.
+  settings({ username, orientation, hudExpanded }) {
+    return new Promise((resolve) => {
+      const safeUsername = (username || '').replace(/"/g, '&quot;');
+
+      const orientOptions = [
+        { val: 'device',    label: 'Device orientation' },
+        { val: 'portrait',  label: 'Portrait' },
+        { val: 'landscape', label: 'Landscape' },
+      ];
+      const orientBtns = orientOptions.map(o =>
+        `<button class="dialog-btn dialog-option-btn${orientation === o.val ? ' selected' : ''}"
+                 data-group="orient" data-val="${o.val}">${o.label}</button>`
+      ).join('');
+
+      const hudOptions = [
+        { val: 'compact',  label: '🔼 Compact',  exp: false },
+        { val: 'expanded', label: '🔽 Expanded',  exp: true  },
+      ];
+      const hudBtns = hudOptions.map(o =>
+        `<button class="dialog-btn dialog-option-btn${hudExpanded === o.exp ? ' selected' : ''}"
+                 data-group="hud" data-val="${o.val}">${o.label}</button>`
+      ).join('');
+
+      const overlay = this._show(`
+        <h2 class="dialog-title">Settings</h2>
+        <label class="dialog-label">Display name</label>
+        <input class="dialog-input" type="text" placeholder="Your name" value="${safeUsername}">
+        <label class="dialog-label">Screen orientation</label>
+        <div class="dialog-option-group">${orientBtns}</div>
+        <label class="dialog-label">HUD</label>
+        <div class="dialog-option-group">${hudBtns}</div>
+        <div class="dialog-btns" style="margin-top:14px">
+          <button class="dialog-btn" id="settings-save">Save</button>
+          <button class="dialog-btn dialog-btn-cancel" id="settings-cancel">Cancel</button>
+        </div>
+      `);
+
+      // Radio behaviour within each group
+      overlay.querySelectorAll('.dialog-option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const group = btn.dataset.group;
+          overlay.querySelectorAll(`.dialog-option-btn[data-group="${group}"]`)
+            .forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+      });
+
+      overlay.querySelector('#settings-save').addEventListener('click', () => {
+        const nameInput  = overlay.querySelector('.dialog-input');
+        const orientSel  = overlay.querySelector('.dialog-option-btn[data-group="orient"].selected');
+        const hudSel     = overlay.querySelector('.dialog-option-btn[data-group="hud"].selected');
+        this._dismiss();
+        resolve({
+          username:    nameInput  ? nameInput.value.trim() : username,
+          orientation: orientSel  ? orientSel.dataset.val   : orientation,
+          hudExpanded: hudSel     ? hudSel.dataset.val === 'expanded' : hudExpanded,
+        });
+      });
+
+      overlay.querySelector('#settings-cancel').addEventListener('click', () => {
+        this._dismiss();
+        resolve(null);
+      });
     });
   },
 
   _formatPct(solved, played) {
     if (played === 0) return '0';
-    const raw = (solved / 1000000) * 100; // out of 1M total games
-    if (played < 100) return raw.toFixed(4);
+    const raw = (solved / 1000000) * 100;
+    if (played < 100)  return raw.toFixed(4);
     if (played < 1000) return raw.toFixed(3);
     return raw.toFixed(2);
   },
