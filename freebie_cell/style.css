@@ -22,9 +22,13 @@ html, body {
 #app {
   position: fixed;
   inset: 0;
-  bottom: 48px;       /* leave room for HUD — overridden in landscape */
+  bottom: 44px;
   background: #1a5c2e;
   overflow: hidden;
+}
+
+#app.hud-expanded {
+  bottom: 88px;
 }
 
 /* ── Cards ────────────────────────────────────────────────────────────────── */
@@ -98,7 +102,7 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 48px;
+  height: 44px;
   background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
@@ -317,13 +321,100 @@ html, body {
 
 /* ── Landscape adjustments ────────────────────────────────────────────────── */
 
-@media (orientation: landscape) {
-  #app {
-    bottom: 44px;
-  }
+/* ── Sidebar column backgrounds (landscape only) ────────────────────────── */
 
+.sidebar-col-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.sidebar-foundation-bg {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.sidebar-freecell-bg {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+/* ── Expanded HUD ─────────────────────────────────────────────────────────── */
+
+#hud.expanded {
+  height: 88px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+}
+
+.hud-row {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 6px;
+  height: 44px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.hud-actions-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 4px;
+  padding: 0 6px;
+}
+
+.hud-action-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #e8f5e9;
+  font-size: 13px;
+  padding: 5px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.hud-action-btn:active {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* ── Settings dialog extras ───────────────────────────────────────────────── */
+
+.dialog-label {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 12px 0 6px;
+}
+
+.dialog-option-group {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+
+.dialog-option-btn {
+  flex: 1;
+  text-align: center;
+  padding: 8px 4px;
+  font-size: 13px;
+  opacity: 0.55;
+}
+
+.dialog-option-btn.selected {
+  background: #388e3c;
+  opacity: 1;
+}
+
+/* ── Landscape font tweak ─────────────────────────────────────────────────── */
+
+@media (orientation: landscape) {
   #hud {
-    height: 44px;
     font-size: 12px;
   }
 }

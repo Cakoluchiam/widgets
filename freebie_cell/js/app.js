@@ -2,13 +2,19 @@ window.FC = window.FC || {};
 
 FC.app = {
   _username: 'Guest',
-  _userScores: null,       // map of gameNumber → moveCount (user's personal bests)
-  _communityBest: null,    // lowest moveCount across all users for current game
+  _userScores: null,
+  _communityBest: null,
   _showCommunityBest: false,
   _isStuck: false,
   _isAutoSolvable: false,
+  _orientation: 'device',
+  _hudExpanded: false,
 
   async init() {
+    // Load display preferences
+    this._orientation  = localStorage.getItem('FC_orientation')   || 'device';
+    this._hudExpanded  = localStorage.getItem('FC_hud_expanded')  === 'true';
+
     // Firebase + storage
     if (typeof firebase !== 'undefined') {
       try {
@@ -33,7 +39,7 @@ FC.app = {
     }
 
     // First render
-    FC.render.renderAll(FC.state.board);
+    FC.render.renderAll(FC.state.board, this._getConfig());
     this._renderHud();
 
     // Wire drag
@@ -42,9 +48,9 @@ FC.app = {
     // HUD button events
     document.getElementById('hud').addEventListener('click', (e) => this._onHudClick(e));
 
-    // Re-layout on orientation change
+    // Re-layout on resize / orientation change
     window.addEventListener('resize', () => {
-      FC.render.renderAll(FC.state.board);
+      FC.render.renderAll(FC.state.board, this._getConfig());
       this._renderHud();
     });
 
@@ -53,8 +59,14 @@ FC.app = {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
-    // Load community best for current game
     this._loadCommunityBest();
+  },
+
+  _getConfig() {
+    return {
+      orientation: this._orientation,
+      hudExpanded: this._hudExpanded,
+    };
   },
 
   // ── Move handling ─────────────────────────────────────────────────────────
@@ -65,19 +77,17 @@ FC.app = {
       return false;
     }
     FC.state.applyMove(move);
-    FC.render.renderAll(FC.state.board);
+    FC.render.renderAll(FC.state.board, this._getConfig());
     this._afterMove();
     return true;
   },
 
   _afterMove() {
     const board = FC.state.board;
-
     if (board.won) {
       this._onWin();
       return;
     }
-
     this._isAutoSolvable = FC.solver.isAutoSolvable(board);
     this._isStuck = !this._isAutoSolvable && FC.solver.isStuck(board);
     this._renderHud();
@@ -85,9 +95,18 @@ FC.app = {
 
   undo() {
     if (!FC.state.undo()) return;
-    FC.render.renderAll(FC.state.board);
+    FC.render.renderAll(FC.state.board, this._getConfig());
     this._isAutoSolvable = FC.solver.isAutoSolvable(FC.state.board);
     this._isStuck = !this._isAutoSolvable && FC.solver.isStuck(FC.state.board);
+    this._renderHud();
+  },
+
+  _restartGame() {
+    const num = FC.state.board.gameNumber;
+    FC.state.newGame(num);
+    this._isAutoSolvable = false;
+    this._isStuck = false;
+    FC.render.renderAll(FC.state.board, this._getConfig());
     this._renderHud();
   },
 
@@ -98,7 +117,7 @@ FC.app = {
     steps.forEach((move, i) => {
       setTimeout(() => {
         FC.state.applyMove(move);
-        FC.render.renderAll(FC.state.board);
+        FC.render.renderAll(FC.state.board, this._getConfig());
         if (i === steps.length - 1) {
           this._isAutoSolvable = false;
           this._isStuck = false;
@@ -134,7 +153,6 @@ FC.app = {
       moveCount,
       datetime: new Date(),
     }).catch(() => {});
-    // Refresh user scores cache
     if (this._userScores) {
       const existing = this._userScores.get(gameNumber);
       if (existing === undefined || moveCount < existing) {
@@ -146,10 +164,10 @@ FC.app = {
   // ── New game ──────────────────────────────────────────────────────────────
 
   async _promptNewGame() {
-    const scores = this._userScores;
+    const scores      = this._userScores;
     const gamesPlayed = scores ? scores.size : 0;
-    const gamesSolved = scores ? scores.size : 0; // each entry = solved once
-    const hasAuth = FC.auth.isSignedIn;
+    const gamesSolved = scores ? scores.size : 0;
+    const hasAuth     = FC.auth.isSignedIn;
 
     const choice = await FC.dialogs.newGame({ gamesPlayed, gamesSolved, hasAuth });
     if (choice === 'cancel') return;
@@ -166,7 +184,6 @@ FC.app = {
   async _startRandomGame(mode) {
     let num;
     const maxTries = 20;
-
     for (let i = 0; i < maxTries; i++) {
       num = Math.floor(Math.random() * 1000000) + 1;
       if (FC.UNSOLVABLE.has(num)) continue;
@@ -177,19 +194,17 @@ FC.app = {
   },
 
   async _startGame(num) {
-    // Skip unsolvable deals with a visible message
     while (FC.UNSOLVABLE.has(num)) {
       FC.render.showBanner(`Skipping #${num}…`, 1500);
       await new Promise(r => setTimeout(r, 1500));
       num = (num % 1000000) + 1;
     }
-
     FC.state.newGame(num);
     this._isAutoSolvable = false;
     this._isStuck = false;
     this._communityBest = null;
     FC.state.clearSaved();
-    FC.render.renderAll(FC.state.board);
+    FC.render.renderAll(FC.state.board, this._getConfig());
     this._renderHud();
     this._loadCommunityBest();
   },
@@ -201,30 +216,38 @@ FC.app = {
     if (!board) return;
 
     const gameNumber = board.gameNumber;
-    const userBest = this._userScores ? (this._userScores.get(gameNumber) ?? null) : null;
-    const solved = userBest !== null;
+    const userBest   = this._userScores ? (this._userScores.get(gameNumber) ?? null) : null;
+    const solved     = userBest !== null;
 
     FC.render.renderHud(board, this._username, {
       solved,
       userBest,
-      communityBest: this._communityBest,
-      showCommunity: this._showCommunityBest,
-      stuck: this._isStuck,
-      autoSolvable: this._isAutoSolvable,
+      communityBest:  this._communityBest,
+      showCommunity:  this._showCommunityBest,
+      stuck:          this._isStuck,
+      autoSolvable:   this._isAutoSolvable,
+      hudExpanded:    this._hudExpanded,
     });
   },
 
   _onHudClick(e) {
     const target = e.target.closest('[id], [data-action]');
     if (!target) return;
-
     const id = target.id;
 
-    if (id === 'btn-undo') { this.undo(); return; }
-    if (id === 'btn-new')  { this._promptNewGame(); return; }
-    if (id === 'btn-settings') { this._promptUsername(); return; }
-    if (id === 'auto-btn') { this.autoSolve(); return; }
-    if (id === 'hud-game') { this._promptNewGame(); return; }
+    if (id === 'btn-undo')     { this.undo(); return; }
+    if (id === 'btn-restart')  { this._restartGame(); return; }
+    if (id === 'btn-new')      { this._promptNewGame(); return; }
+    if (id === 'btn-settings') { this._promptSettings(); return; }
+    if (id === 'btn-hud-toggle') {
+      this._hudExpanded = !this._hudExpanded;
+      localStorage.setItem('FC_hud_expanded', this._hudExpanded);
+      FC.render.renderAll(FC.state.board, this._getConfig());
+      this._renderHud();
+      return;
+    }
+    if (id === 'auto-btn')   { this.autoSolve(); return; }
+    if (id === 'hud-game')   { this._promptNewGame(); return; }
     if (id === 'score-best') {
       this._showCommunityBest = !this._showCommunityBest;
       this._renderHud();
@@ -232,13 +255,27 @@ FC.app = {
     }
   },
 
-  async _promptUsername() {
-    const name = await FC.dialogs.usernameOverride(this._username);
-    if (name !== null && name.trim()) {
-      FC.auth.setUsernameOverride(name.trim());
+  async _promptSettings() {
+    const result = await FC.dialogs.settings({
+      username:    this._username,
+      orientation: this._orientation,
+      hudExpanded: this._hudExpanded,
+    });
+    if (!result) return;
+
+    if (result.username && result.username !== this._username) {
+      FC.auth.setUsernameOverride(result.username);
       this._username = FC.auth.getUsername();
-      this._renderHud();
     }
+
+    this._orientation = result.orientation;
+    localStorage.setItem('FC_orientation', this._orientation);
+
+    this._hudExpanded = result.hudExpanded;
+    localStorage.setItem('FC_hud_expanded', this._hudExpanded);
+
+    FC.render.renderAll(FC.state.board, this._getConfig());
+    this._renderHud();
   },
 
   // ── Remote data ───────────────────────────────────────────────────────────
@@ -263,5 +300,4 @@ FC.app = {
   },
 };
 
-// Boot
 document.addEventListener('DOMContentLoaded', () => FC.app.init());
