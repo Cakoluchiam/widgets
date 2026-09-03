@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube → Winamp</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2314161a'/%3E%3Cg fill='%233ddc84'%3E%3Crect x='3' y='8' width='2' height='5'/%3E%3Crect x='6' y='4' width='2' height='9'/%3E%3Crect x='9' y='6' width='2' height='7'/%3E%3Crect x='12' y='3' width='2' height='10'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <div>
+      <h1>YouTube&nbsp;→&nbsp;Winamp</h1>
+      <p class="tagline">Turn a YouTube Music playlist into an <code>.m3u8</code> Winamp can crossfade.</p>
+    </div>
+  </div>
+  <button id="btn-crossfade-help" class="btn btn-ghost">Crossfade setup ↗</button>
+</header>
+
+<main>
+
+  <!-- ── Step 1 ─────────────────────────────────────────── -->
+  <section class="step" id="step-import">
+    <h2><span class="num">1</span> Get the playlist out of YouTube</h2>
+
+    <div class="tabs" role="tablist" data-group="import">
+      <button class="tab is-active" role="tab" data-panel="panel-grab">Console grabber</button>
+      <button class="tab" role="tab" data-panel="panel-api">API key</button>
+      <button class="tab" role="tab" data-panel="panel-paste">Paste</button>
+    </div>
+
+    <div class="panel is-active" id="panel-grab">
+      <p class="hint">
+        Works for <strong>any</strong> playlist you can see, private ones included, because it runs
+        inside your already-signed-in tab. Nothing is sent anywhere.
+      </p>
+      <ol class="steps">
+        <li>Open your playlist on <code>music.youtube.com</code> (or <code>youtube.com</code>).</li>
+        <li>Press <kbd>F12</kbd> → <strong>Console</strong>.</li>
+        <li>First time only: type <code>allow pasting</code> and press <kbd>Enter</kbd> — Chrome and Edge block console pastes until you do.</li>
+        <li>Paste the snippet below and press <kbd>Enter</kbd>. It scrolls the whole list, then copies the result.</li>
+        <li>Come back here and paste into the box.</li>
+      </ol>
+      <div class="row">
+        <button id="btn-copy-grabber" class="btn btn-primary">Copy the snippet</button>
+        <button id="btn-show-grabber" class="btn btn-ghost">Show it</button>
+      </div>
+      <pre id="grabber-source" class="code-block" hidden></pre>
+      <textarea id="grab-input" class="code-input" rows="5"
+        placeholder="Paste the grabber's output here…" spellcheck="false"></textarea>
+      <div class="row">
+        <button id="btn-load-grab" class="btn btn-primary">Load these tracks</button>
+        <span class="status" id="grab-status"></span>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-api">
+      <p class="hint">
+        For <strong>public or unlisted</strong> playlists. Needs your own key from the Google Cloud
+        Console with <em>YouTube Data API v3</em> enabled. Private playlists are invisible to an
+        API key — use the console grabber for those.
+      </p>
+      <div class="field-grid">
+        <label for="api-playlist">Playlist URL or ID</label>
+        <input id="api-playlist" type="text" spellcheck="false"
+               placeholder="https://music.youtube.com/playlist?list=PL…">
+        <label for="api-key">API key</label>
+        <input id="api-key" type="password" spellcheck="false" autocomplete="off"
+               placeholder="AIza…">
+      </div>
+      <div class="row">
+        <button id="btn-fetch-api" class="btn btn-primary">Fetch playlist</button>
+        <label class="check"><input type="checkbox" id="api-remember"> Remember the key on this device</label>
+        <span class="status" id="api-status"></span>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-paste">
+      <p class="hint">
+        Select the tracks on the playlist page, copy, and paste here. Rows like
+        <code>Artist - Title</code>, <code>Song • Artist • Album • 3:47</code>, tab-separated
+        columns and YouTube Music's own multi-line copy format are all understood.
+      </p>
+      <textarea id="paste-input" class="code-input" rows="8"
+        placeholder="Radiohead - Creep&#10;Daft Punk - Around The World&#10;Toto - Africa 4:55" spellcheck="false"></textarea>
+      <div class="row">
+        <button id="btn-load-paste" class="btn btn-primary">Load these tracks</button>
+        <label class="check"><input type="checkbox" id="opt-append"> Add to the current list instead of replacing it</label>
+        <span class="status" id="paste-status"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Step 2 ─────────────────────────────────────────── -->
+  <section class="step" id="step-tracks">
+    <h2><span class="num">2</span> Check the tracks</h2>
+
+    <div class="row row-wrap toolbar">
+      <label class="inline-field">
+        Playlist name
+        <input id="playlist-name" type="text" placeholder="My Playlist">
+      </label>
+      <span class="spacer"></span>
+      <button id="btn-sort-artist" class="btn btn-ghost btn-sm">Sort by artist</button>
+      <button id="btn-shuffle" class="btn btn-ghost btn-sm">Shuffle</button>
+      <button id="btn-clear-tracks" class="btn btn-ghost btn-sm danger">Clear all</button>
+    </div>
+
+    <div id="track-summary" class="summary"></div>
+    <div id="track-table-wrap" class="table-wrap"></div>
+  </section>
+
+  <!-- ── Step 3 ─────────────────────────────────────────── -->
+  <section class="step" id="step-library">
+    <h2><span class="num">3</span> Point it at your music</h2>
+    <p class="hint">
+      Winamp plays files on your disk, so each track needs a real path. Give it a listing of your
+      music folder and every track gets matched automatically. The matches are remembered between
+      visits; the folder index itself is not, so re-paste the listing if you want to match again
+      later.
+    </p>
+
+    <div class="tabs" role="tablist" data-group="library">
+      <button class="tab is-active" role="tab" data-panel="panel-listing">Paste a file listing</button>
+      <button class="tab" role="tab" data-panel="panel-picker">Pick a folder</button>
+    </div>
+
+    <div class="panel is-active" id="panel-listing">
+      <p class="hint">Run this in PowerShell, then paste the clipboard into the box.</p>
+      <div class="row row-wrap">
+        <label class="inline-field">
+          Audio extensions
+          <input id="opt-exts" type="text" spellcheck="false" size="34">
+        </label>
+        <label class="check"><input type="checkbox" id="opt-read-tags">
+          Read Artist/Title tags too <span class="muted">(slower; rescues libraries named <code>01.mp3</code>)</span></label>
+      </div>
+      <pre id="scan-script" class="code-block"></pre>
+      <div class="row">
+        <button id="btn-copy-scan" class="btn btn-primary">Copy the script</button>
+      </div>
+      <textarea id="listing-input" class="code-input" rows="6"
+        placeholder="D:\Music\Radiohead\Pablo Honey\03 - Creep.mp3&#10;D:\Music\Toto\Toto IV\02 Africa.flac&#10;…" spellcheck="false"></textarea>
+      <div class="row">
+        <button id="btn-load-listing" class="btn btn-primary">Index &amp; match</button>
+        <span class="status" id="listing-status"></span>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-picker">
+      <p class="hint">
+        Uses the browser's directory picker. Needs a Chromium browser served over
+        <code>http://localhost</code> — it is unavailable on <code>file://</code>. The paths it
+        produces are relative to the folder you pick, so set a path prefix in step 4 (or drop the
+        playlist file into that folder and use relative paths).
+      </p>
+      <div class="row">
+        <button id="btn-pick-folder" class="btn btn-primary">Choose music folder…</button>
+        <span class="status" id="picker-status"></span>
+      </div>
+    </div>
+
+    <div class="row">
+      <button id="btn-rematch" class="btn btn-ghost">Re-run matching</button>
+      <span class="status" id="match-status"></span>
+    </div>
+    <div class="progress" id="match-progress" hidden><div class="progress-bar"></div></div>
+  </section>
+
+  <!-- ── Step 4 ─────────────────────────────────────────── -->
+  <section class="step" id="step-export">
+    <h2><span class="num">4</span> Export for Winamp</h2>
+
+    <div class="options">
+      <label class="inline-field">
+        Paths
+        <select id="opt-path-style">
+          <option value="absolute">Absolute (D:\Music\…)</option>
+          <option value="relative">Relative to the playlist file</option>
+        </select>
+      </label>
+      <label class="inline-field">
+        Path prefix
+        <input id="opt-prefix" type="text" spellcheck="false" placeholder="D:\Music">
+      </label>
+      <label class="inline-field">
+        Separator
+        <select id="opt-separator">
+          <option value="win">Backslash \ (Windows)</option>
+          <option value="posix">Forward slash /</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="opt-drop-unmatched">
+        Leave out tracks with no file <span class="muted">(otherwise they stay in as missing entries)</span></label>
+    </div>
+
+    <div class="row row-wrap">
+      <button id="btn-dl-m3u8" class="btn btn-primary">Download .m3u8</button>
+      <button id="btn-dl-m3u"  class="btn btn-ghost" title="Same content, UTF-8, for players that will not open a .m3u8">.m3u</button>
+      <button id="btn-dl-pls"  class="btn btn-ghost">.pls</button>
+      <button id="btn-dl-csv"  class="btn btn-ghost">.csv</button>
+      <span class="spacer"></span>
+      <label class="inline-field">
+        yt-dlp format
+        <select id="opt-ytdlp-format">
+          <option value="mp3">mp3</option>
+          <option value="m4a">m4a</option>
+          <option value="opus">opus</option>
+          <option value="flac">flac</option>
+          <option value="best">best</option>
+        </select>
+      </label>
+      <button id="btn-dl-ps1" class="btn btn-ghost">Fetch missing tracks (.ps1)</button>
+    </div>
+
+    <details class="preview">
+      <summary>Preview the playlist file</summary>
+      <pre id="export-preview" class="code-block"></pre>
+    </details>
+
+    <p class="hint outro">
+      In Winamp: <strong>File → Open Playlist</strong> (or drag the <code>.m3u8</code> onto the
+      playlist editor). Then turn on crossfading —
+      <button id="btn-crossfade-help-2" class="linkish">here's how</button>.
+    </p>
+  </section>
+
+</main>
+
+<!-- Crossfade help -->
+<div class="backdrop" id="crossfade-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cf-title">
+    <div class="modal-head">
+      <h3 id="cf-title">Turning on crossfade in Winamp</h3>
+      <button class="btn btn-ghost btn-sm" id="btn-close-crossfade">Close</button>
+    </div>
+    <div class="modal-body">
+      <p>
+        Crossfading lives in Winamp's <em>output</em> plugin, not in the playlist — so it is a
+        one-time setup that then applies to every playlist you load.
+      </p>
+      <ol class="steps">
+        <li>Press <kbd>Ctrl</kbd>+<kbd>P</kbd> for Preferences.</li>
+        <li>In the left tree open <strong>Plug-ins → Output</strong>.</li>
+        <li>Select <strong>Nullsoft DirectSound Output</strong> (<code>out_ds.dll</code>) and click
+          <strong>Configure</strong>. This matters: the older WaveOut plugin cannot crossfade at all.</li>
+        <li>Open the <strong>Fading</strong> tab. Each action gets its own setting:
+          <ul>
+            <li><strong>on end of song</strong> — tick <em>Enabled</em> and <em>Use custom fade time</em>,
+              then set something like <strong>3000&nbsp;ms</strong>. This is the one that actually
+              crossfades one track into the next.</li>
+            <li><strong>on start</strong> — leave disabled, or tracks fade in on top of the outgoing
+              one and the overlap sounds muddy.</li>
+            <li><strong>on manual song change</strong> — enable if you want skips to blend too.</li>
+            <li><strong>on pause/stop</strong> — a short 200–500&nbsp;ms fade avoids clicks.</li>
+          </ul>
+        </li>
+        <li>On the <strong>Buffering</strong> tab, raise the buffer length. More buffer gives the
+          plugin room to hold both tracks; the maximum is 20000&nbsp;ms.</li>
+        <li>Click OK and restart playback.</li>
+      </ol>
+      <p class="note">
+        Exact labels shift a little between Winamp versions, but the Fading tab and its
+        per-action rows have been in the DirectSound plugin for a very long time.
+      </p>
+      <h4>If it still doesn't blend</h4>
+      <ul class="steps">
+        <li>Crossfade needs the next file ready in advance, so it works on local files — not on
+          streamed URLs.</li>
+        <li>Any track in the playlist that Winamp cannot find is skipped instantly, which reads as a
+          gap. Step 3 above is what stops that happening.</li>
+        <li>Gapless-encoded albums may still sound abrupt if the fade time is longer than the
+          silence at the track edges. Try 2000&nbsp;ms.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<a id="download-anchor" hidden></a>
+
+<!-- Namespace pattern with plain <script> tags so the widget also runs from file:// -->
+<script src="js/core.js?v=1"></script>
+<script src="js/parse.js?v=1"></script>
+<script src="js/grabber.js?v=1"></script>
+<script src="js/ytapi.js?v=1"></script>
+<script src="js/library.js?v=1"></script>
+<script src="js/exporters.js?v=1"></script>
+<script src="js/ui.js?v=1"></script>
+<script src="js/app.js?v=1"></script>
+</body>
+</html>
